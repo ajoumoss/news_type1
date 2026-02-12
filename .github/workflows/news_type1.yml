@@ -1,0 +1,41 @@
+name: News Scraper (Type 1)
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # 매 시간 0분에 실행 (UTC 기준)
+  workflow_dispatch:      # 수동 실행 가능
+    inputs:
+      hours:
+        description: '스크랩할 시간 범위 (기본: 1시간)'
+        required: false
+        default: '1'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Run News Scraper
+      env:
+        NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+        NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+        NOTION_DATABASE_ID: "302acd43b8308085a2bbf472fad71eff"
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      run: |
+        # workflow_dispatch에서 입력받은 hours가 있으면 사용, 없으면 1시간
+        HOURS=${{ github.event.inputs.hours || '1' }}
+        python main.py --hours $HOURS
