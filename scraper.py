@@ -83,7 +83,11 @@ def extract_article_details(url):
                        soup.select_one('#articleBodyContents') or 
                        soup.select_one('article') or 
                        soup.select_one('.article_body') or 
-                       soup.select_one('#article_content'))
+                       soup.select_one('#article_content') or
+                       soup.select_one('.news_body_area') or
+                       soup.select_one('#news_body_area') or
+                       soup.select_one('.article-body') or
+                       soup.select_one('.article_view'))
         
         if content_tag:
             for s in content_tag(['script', 'style', 'nav', 'footer', 'header']): s.decompose()
@@ -134,15 +138,49 @@ def is_relevant_article(item, start_date=None, end_date=None, content=None):
         combined_text += " " + content
     
     # 1. 문체부/문체위 관련 키워드 확인
-    keywords = ['1형 당뇨', '1형당뇨', '소아당뇨']
+    # 0. 포토뉴스 및 초단문 기사 필터링 (단순 홍보/사진 기사 제외)
+    if any(title.startswith(prefix) for prefix in ['[포토]', '[사진]', '[Photo]', '포토]', '사진]']):
+        return False
+        
+    if content and len(content) < 80:
+        return False
+
+    # 0-0. 연예 뉴스 필터링 (entertain.naver.com)
+    if 'entertain.naver.com' in item.get('link', ''):
+        return False
+
+
+    # 0-1. 영화 '슈가' 단순 홍보 기사 필터링 (강제 제외)
+    # '슈가'가 포함되면서 동시에 배우 이름이나 영화 관련 단어가 있으면 제외
+    if '슈가' in title:
+        movie_keywords = ['최지우', '시사회', '개봉', '아역', '촬영', '케미', '스크린', '극장', '예고편', '포스터']
+        if any(mk in title for mk in movie_keywords):
+            return False
+
+    # 1. 문체부/문체위 관련 키워드 확인
+    general_keywords = ['1형 당뇨', '1형당뇨']
+    strong_keywords = ['소아당뇨', '췌장장애']
+    all_keywords = general_keywords + strong_keywords
     
     # 제목에 키워드가 있으면 무조건 통과
-    if any(k in title for k in keywords):
-        return True
+    for k in all_keywords:
+        if k in title:
+            return True
+            
+    # if not in title, check other filters
+    # ...
         
-    # 내용/설명에 키워드가 있어도 통과
-    if any(k in combined_text for k in keywords):
-        return True
+    # 본문 필터링 (하이브리드 방식)
+    if content:
+        # 강력 키워드(소아당뇨, 췌장장애)는 1번만 나와도 통과
+        for k in strong_keywords:
+            if k in content:
+                return True
+                
+        # 일반 키워드(1형 당뇨)는 2번 이상 나와야 통과 (단순 언급 방지)
+        for k in general_keywords:
+            if content.count(k) >= 2:
+                return True
 
     # 3. 기간 필터링
     try:

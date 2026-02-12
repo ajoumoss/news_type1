@@ -25,33 +25,38 @@ class LLMClassifier:
 
         prompt = f"""
 You are an expert news classifier for Type 1 Diabetes (1형 당뇨) news.
-Analyze the following news article and classify it into "Category" and "Type".
+Note: Type 1 Diabetes is officially recognized as a "Pancreatic Disability" (췌장장애) in Korea. Articles discussing "Pancreatic Disability" policy or issues are HIGHLY RELEVANT.
+Analyze the following news article.
 
 [Article]
 Title: {title}
-Content Snippet: {content[:1000]}
+Content Snippet: {content[:1500]}
 
-[Classification Rules]
-1. Category (Choose one):
-   - 의학/연구 (Medical/Research): New treatments, clinical trials, medical studies, complications.
-   - 정책/지원 (Policy/Support): Insurance coverage, government aid, legal changes, school support.
-   - 생활/관리 (Life/Management): Diet, insulin pumps/CGM, daily management tips, mental health.
-   - 사회/인식 (Society/Awareness): Awareness campaigns, discrimination issues, personal stories, events.
-   - 기타 (Other): General or unrelated.
+[Task 1: Classification]
+Choose ONE category that best fits the article.
+1. **정책/지원 (Policy)**: Insurance, government aid, laws, politics.
+2. **의학/연구 (Medical)**: New drugs, treatments, clinical trials, medical studies.
+3. **사회/환우 (Society)**: Awareness campaigns, donations, **Personal Stories** (Real patients only), events.
+4. **경제/산업 (Economy)**: Pharma business, stock market, new product launches.
+5. **생활/정보 (Life)**: Diet, devices (CGM, pumps), daily management tips.
 
-2. Type (Choose one):
-   - 연구결과 (Research): Scientific findings, medical breakthroughs.
-   - 정책발표 (Policy): Official government announcements, new laws or regulations.
-   - 행사/캠페인 (Event): Walks, camps, donations, awareness events.
-   - 개인사례 (Story): Interviews, experiences, personal achievements.
-   - 정보/팁 (Info): Educational content, management advice.
-   - 기타 (Other): Unclear.
+*Note: If the article fits multiple, choose the most dominant one.*
+
+**Irrelevant Definition**:
+- Movie/Drama promotions (e.g., 'Sugar', Choi Ji-woo) -> IRRELEVANT.
+- Passing mentions of diabetes in unrelated tops -> IRRELEVANT.
+- If it is Irrelevant, set category to "관련없음".
+
+[Task 2: Summarization]
+- Summarize the **core message** of the article in 1-2 Korean sentences.
+- Rewrite it as if explaining the key takeaway to a patient.
+- Focus on "What is new?" or "What should I know?".
 
 [Output Format]
 Return ONLY a JSON object. Do not include markdown formatting (```json ... ```).
 {{
   "category": "...",
-  "type": "..."
+  "summary": "..."
 }}
 """
         
@@ -82,8 +87,12 @@ Return ONLY a JSON object. Do not include markdown formatting (```json ... ```).
         recent_summaries = existing_summaries[-20:]
         
         prompt = f"""
-Determine if the [New Article] is effectively covering the SAME EVENT or TOPIC as any of the [Existing Articles].
-Ignore minor differences in phrasing. Focus on the core event/subject.
+Determine if the [New Article] is effectively covering the **EXACT SAME SPECIFIC EVENT or PRESS RELEASE** as any of the [Existing Articles].
+
+Rules:
+1. Different articles about the same *general topic* (e.g., "Diabetes management tips") are **NOT** duplicates.
+2. Different perspectives or interviews on the same issue are **NOT** duplicates.
+3. Only mark as duplicate if they cover the **same specific event, announcement, or accident** on the same day.
 
 [New Article]
 {new_title}

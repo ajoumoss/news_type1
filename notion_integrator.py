@@ -29,7 +29,7 @@ def get_headers():
         "Content-Type": "application/json"
     }
 
-def add_article_to_notion(title, link, date, description, category="기타", type="기타", press="정보 없음", full_content="", mentions=""):
+def add_article_to_notion(title, link, date, description, category="기타", type="기타", press="정보 없음", full_content="", mentions="", summary=""):
     try:
         formatted_date = parse_naver_date(date)
         url = "https://api.notion.com/v1/pages"
@@ -43,7 +43,7 @@ def add_article_to_notion(title, link, date, description, category="기타", typ
             "언론사": {"multi_select": [{"name": press}]}
         }
         
-        children = generate_children_blocks(description, link, mentions) # link를 전달
+        children = generate_children_blocks(description, link, mentions, summary) # summary 전달
 
         payload = {
             "parent": {"database_id": NOTION_DATABASE_ID},
@@ -92,17 +92,19 @@ def check_article_exists_by_title(title):
         return False
     except: return False
 
-def generate_children_blocks(description, article_url, mentions):
+def generate_children_blocks(description, article_url, mentions, summary=""):
     children = []
     
-    # 1. 이소희 의원 언급부분 (기존 기사 요약 섹션을 활용)
-    if description:
+    # 1. 핵심 요약 (LLM Summary 우선, 없으면 Naver Description)
+    content_text = summary if summary else description
+    
+    if content_text:
         children.append({
-            "heading_3": {"rich_text": [{"type": "text", "text": {"content": "기사 요약"}}]}
+            "heading_3": {"rich_text": [{"type": "text", "text": {"content": "💡 핵심 요약"}}]}
         })
         children.append({
             "object": "block", "type": "paragraph",
-            "paragraph": {"rich_text": [{"type": "text", "text": {"content": clean_text(description)}}]}
+            "paragraph": {"rich_text": [{"type": "text", "text": {"content": clean_text(content_text)}}]}
         })
     
     # 2. 본문 링크 (URL 주소 직접 표시)
